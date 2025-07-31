@@ -9,8 +9,8 @@
 
     <h2>Dispositivos activos</h2>
     <div class="device-buttons">
-      <button v-for="(d, i) in dispositivos" :key="i" class="btn">
-        {{ d.nombre }}
+      <button v-for="device in devicesArray" :key="device.dispositivoId" class="btn">
+        {{ device.ubicacion }}
       </button>
     </div>
 
@@ -23,11 +23,13 @@
 <script setup>
 import { onMounted, ref } from 'vue';
 import { getDevice } from '@/services/deviceService';
-import Chart from 'chart.js/auto';
+import Chart, { scales } from 'chart.js/auto';
 
 const devicesData = ref([]);
 const devicesArray = [];
 let numberDevicesActive =  ref(0);
+const chartInstance = ref(null);
+
 onMounted(async() =>{
   try {
     const response =  await getDevice();
@@ -38,7 +40,8 @@ onMounted(async() =>{
   } finally {
     countDevices(devicesData);
     isActiveDevice();
-    console.log(devicesArray);
+    renderChart();
+    console.log(devicesArray.map(device => device.nombre));
   }
 
 })
@@ -50,7 +53,32 @@ onMounted(async() =>{
   const isActiveDevice = () =>{
     numberDevicesActive = devicesArray.filter(device => device.tienePresencia === true).length;
   }
+  const renderChart = () =>{
+    if(chartInstance.value){
+      chartInstance.value.destroy();
+    }
 
+    const labels = devicesArray.map(device => device.ubicacion);
+    const data =  devicesArray.map(device => device.potenciaTotal)
+    const chart = document.getElementById('chart');
+    chartInstance.value =  new Chart(chart,{
+      type: 'bar',
+      data: { 
+        labels,
+        datasets: [{
+          label: 'Consumo',
+          data,
+          backgroundColor: '#64b5f6'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: { y: {beginAtZero: true} }
+      }
+
+    });
+  }
  
 const dispositivos = [
   { nombre: 'Dispositivo 1', consumo: 10 },
@@ -60,7 +88,7 @@ const dispositivos = [
 console.log(dispositivos);
 
 // pendiente ajustar el generador de graficos en base al array que guarda los objetos del API
-onMounted(() => {
+/* onMounted(() => {
   new Chart(document.getElementById('chart'), {
     type: 'bar',
     data: {
@@ -79,7 +107,7 @@ onMounted(() => {
       }
     }
   });
-});
+}); */
 </script>
 
 <style scoped>
