@@ -2,9 +2,9 @@
   <div class="dashboard">
     <h2>Consumo eléctrico</h2>
     <div class="summary">
-      <div class="card">Consumo total<br /><strong>12.17 kWh</strong></div>
-      <div class="card">Consumo actual<br /><strong>12.17 kWh</strong></div>
-      <div class="card">Dispositivos activos<br /><strong>3/5</strong></div>
+      <div class="card">Consumo total<br /><strong>{{ devicesData.potenciaTotal }} kWh</strong></div>
+      <div class="card">Consumo actual<br /><strong>{{ devicesData.potenciaTotal }} kWh</strong></div>
+      <div class="card">Dispositivos activos<br /><strong>{{numberDevicesActive}}/{{ devicesArray.length }}</strong></div>
     </div>
 
     <h2>Dispositivos activos</h2>
@@ -21,15 +21,45 @@
 </template>
 
 <script setup>
-import { onMounted } from 'vue';
+import { onMounted, ref } from 'vue';
+import { getDevice } from '@/services/deviceService';
 import Chart from 'chart.js/auto';
 
+const devicesData = ref([]);
+const devicesArray = [];
+let numberDevicesActive =  ref(0);
+onMounted(async() =>{
+  try {
+    const response =  await getDevice();
+    devicesData.value = response.data;
+
+  } catch (error) {
+    console.error('Fallo xd',error);
+  } finally {
+    countDevices(devicesData);
+    isActiveDevice();
+    console.log(devicesArray);
+  }
+
+})
+
+  const countDevices = (device) =>{
+    devicesArray.push(device.value);
+    
+  }
+  const isActiveDevice = () =>{
+    numberDevicesActive = devicesArray.filter(device => device.tienePresencia === true).length;
+  }
+
+ 
 const dispositivos = [
   { nombre: 'Dispositivo 1', consumo: 10 },
   { nombre: 'Dispositivo 2', consumo: 15 },
   { nombre: 'Dispositivo 3', consumo: 21 }
 ];
+console.log(dispositivos);
 
+// pendiente ajustar el generador de graficos en base al array que guarda los objetos del API
 onMounted(() => {
   new Chart(document.getElementById('chart'), {
     type: 'bar',

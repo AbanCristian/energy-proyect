@@ -15,4 +15,14 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url))
     },
   },
+  // server: {
+  //   proxy: {
+  //     // Cualquier llamada que comience con /api se redirigirá al backend externo
+  //     '/api': {
+  //       target: 'https://api-powergate.onrender.com', // 🔁 Cambia esto por tu URL real de la API
+  //       changeOrigin: true,
+  //       rewrite: path => path.replace(/^\/api/, '') // elimina el prefijo "/api"
+  //     }
+  //   }
+  // },
 })
