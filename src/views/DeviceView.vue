@@ -54,7 +54,7 @@
 
 <script setup>
 import { onMounted, ref } from 'vue';
-import { getDevice } from '@/services/deviceService';
+import { getDevice } from '@/services/external';
 import { useRouter } from 'vue-router';
 
 const router = useRouter();
