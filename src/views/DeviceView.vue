@@ -16,7 +16,7 @@
         <p v-if="device.potenciaTotal"><strong>Consumo eléctrico:</strong> {{ device.potenciaTotal }}</p>
 
         <div class="icon">
-          <svg v-if="device.tienePresencia === true" xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+          <svg v-if="device.tienePresencia === true" xmlns="http://www.w3.org/2000/svg" width="30" height="30"
                viewBox="0 0 24 24" fill="none" stroke="green" stroke-width="2"
                stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
             <path d="M5 12.55a11 11 0 0 1 14.08 0"/>
@@ -24,23 +24,28 @@
             <path d="M12 20h.01"/>
           </svg>
 
-          <svg v-else-if="device.tienePresencia === false" xmlns="http://www.w3.org/2000/svg" width="24" height="24"
-               viewBox="0 0 24 24" fill="none" stroke="red" stroke-width="2"
+
+          <svg v-else-if="device.tienePresencia === false" xmlns="http://www.w3.org/2000/svg" width="40" height="40"
+               viewBox="0 0 24 24" fill="none" stroke="red" stroke-width="5"
                stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
             <line x1="18" y1="6" x2="6" y2="18" />
             <line x1="6" y1="6" x2="18" y2="18" />
           </svg>
 
-          <svg v-else xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+<!--           <svg v-else xmlns="http://www.w3.org/2000/svg" width="30" height="30"
                viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2"
                stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
             <path d="M3 7v13h18V7L12 3z" />
             <path d="M9 22v-4h6v4" />
-          </svg>
-          
+          </svg> -->
+
+            <svg v-else xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="currentColor" class="bi bi-moon-fill" viewBox="0 0 16 16">
+              <path d="M6 .278a.77.77 0 0 1 .08.858 7.2 7.2 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277q.792-.001 1.533-.16a.79.79 0 0 1 .81.316.73.73 0 0 1-.031.893A8.35 8.35 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.75.75 0 0 1 6 .278"/>
+            </svg>
+
         </div>
         <button @click="verActividad(device)" class="actividad-btn">
-            📊 Ver actividad
+             Ver actividad
         </button>
       </div>
     </div>

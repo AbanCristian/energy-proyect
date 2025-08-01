@@ -23,7 +23,7 @@
 <script setup>
 import { onMounted, ref } from 'vue';
 import { getDevice } from '@/services/deviceService';
-import Chart, { scales } from 'chart.js/auto';
+import Chart from 'chart.js/auto';
 
 const devicesData = ref([]);
 const devicesArray = [];
@@ -80,13 +80,6 @@ onMounted(async() =>{
     });
   }
  
-const dispositivos = [
-  { nombre: 'Dispositivo 1', consumo: 10 },
-  { nombre: 'Dispositivo 2', consumo: 15 },
-  { nombre: 'Dispositivo 3', consumo: 21 }
-];
-console.log(dispositivos);
-
 // pendiente ajustar el generador de graficos en base al array que guarda los objetos del API
 /* onMounted(() => {
   new Chart(document.getElementById('chart'), {
