@@ -1,6 +1,5 @@
 <template>
   <div class="dashboard-container">
-    <!-- Modal de carga -->
     <div v-if="isLoading" class="loading-modal">
       <div class="loading-content">
         <div class="loading-spinner"></div>
@@ -16,9 +15,7 @@
       </div>
     </div>
     
-    <!-- Resumen de métricas principales -->
     <div class="metrics-grid">
-      <!-- Estado del dispositivo -->
       <div class="card">
         <h2>Estado del Dispositivo ESP32</h2>
         <div class="metric">
@@ -39,7 +36,6 @@
         </div>
       </div>
 
-      <!-- Mediciones eléctricas en tiempo real -->
       <div class="card">
         <h2>Mediciones Actuales</h2>
         <div class="metric">
@@ -56,7 +52,6 @@
         </div>
       </div>
 
-      <!-- Consumo de la sesión -->
       <div class="card">
         <h2>Consumo de la Sesión</h2>
         <div class="metric">
@@ -74,7 +69,6 @@
       </div>
     </div>
 
-    <!-- Gráfico de potencia en tiempo real -->
     <div class="card chart-card">
       <h2>Gráfico de Potencia</h2>
       <div class="chart-container">
@@ -82,7 +76,6 @@
       </div>
     </div>
 
-    <!-- Tabla histórica de telemetrías -->
     <div class="card table-card">
       <h2>Historial de Telemetrías</h2>
       <div class="table-controls">
@@ -502,6 +495,7 @@ const formatDuration = (milliseconds) => {
   padding: 20px;
   max-width: 1200px;
   margin: 0 auto;
+  /* background-color: #F0F2F5;  */
 }
 
 .header {
@@ -523,9 +517,9 @@ const formatDuration = (milliseconds) => {
   align-items: center;
   gap: 8px;
   padding: 8px 16px;
-  background: rgba(255, 255, 255, 0.9);
+  background: #F7F7F7;
   border-radius: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid #E0E0E0;
 }
 
 .ws-indicator {
@@ -568,7 +562,7 @@ const formatDuration = (milliseconds) => {
   padding: 40px;
   background: white;
   border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  border: 1px solid #E0E0E0;
 }
 
 .loading-spinner {
@@ -624,19 +618,7 @@ const formatDuration = (milliseconds) => {
   margin-bottom: 30px;
 }
 
-.metric {
-  text-align: center;
-  padding: 20px;
-  border-radius: 12px;
-  background: white;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.metric:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-}
+/* Se elimina la clase .metric para que los elementos dentro de las tarjetas no tengan estilos duplicados */
 
 .metric-label {
   font-size: 0.9rem;
@@ -657,12 +639,11 @@ const formatDuration = (milliseconds) => {
   border-radius: 12px;
   padding: 25px;
   margin-bottom: 25px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  transition: box-shadow 0.2s ease;
+  border: 1px solid #E0E0E0; /* Añadimos un borde para delimitar las tarjetas */
 }
 
 .card:hover {
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  /* Eliminamos la sombra al hacer hover */
 }
 
 .card h2 {
@@ -670,6 +651,21 @@ const formatDuration = (milliseconds) => {
   color: #2c3e50;
   font-size: 1.4rem;
   font-weight: 600;
+}
+
+/* Estilo para los elementos internos de las tarjetas de métricas */
+.card .metric {
+  text-align: center;
+  padding: 20px;
+  border-radius: 8px; /* Un poco menos de borde para los elementos internos */
+  background: #F7F7F7; /* Fondo más claro */
+  border: 1px solid #E0E0E0; /* Borde para el recuadro interno */
+  margin-bottom: 10px; /* Espaciado entre los recuadros internos */
+}
+
+/* Eliminamos el último margin-bottom para que no haya espaciado extra */
+.card .metric:last-child {
+  margin-bottom: 0;
 }
 
 /* Chart Card */
@@ -703,7 +699,7 @@ const formatDuration = (milliseconds) => {
 }
 
 .btn-secondary {
-  background: #95a5a6;
+  background: #0f79eb;
   color: white;
   border: none;
   padding: 10px 20px;

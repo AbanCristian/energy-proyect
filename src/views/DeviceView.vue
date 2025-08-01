@@ -12,7 +12,7 @@
       <div v-for="device in devices" :key="device.dispositivoId" class="device-card">
         <p><strong>Ubicación:</strong> {{ device.ubicacion}}</p>
         <p><strong>Estado:</strong> {{ device.tienePresencia === true ? 'Activo' : 'Inactivo' }}</p>
-        <p><strong>Tiempo activo:</strong> {{ device.ubicacion }}</p>
+        <!-- <p><strong>Tiempo activo:</strong> {{ device.ubicacion }}</p> -->
         <p v-if="device.potenciaTotal"><strong>Consumo eléctrico:</strong> {{ device.potenciaTotal }}</p>
 
         <div class="icon">

@@ -1,13 +1,44 @@
 <template>
-  <div class="login-container">
-    <h2>Iniciar sesión</h2>
+  <div class="form-container login-form">
+    <div class="icon-wrapper">
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        class="user-icon"
+      >
+        <path
+          d="M12 2.5a4.5 4.5 0 100 9 4.5 4.5 0 000-9zM4 19.5a8 8 0 0116 0H4z"
+        />
+      </svg>
+    </div>
     <form @submit.prevent="handleLogin">
-      <input v-model="correo" type="email" placeholder="Correo" required />
-      <input v-model="contrasena" type="password" placeholder="Contraseña" required />
-      <button type="submit">Entrar</button>
+      <div class="input-group">
+        <label for="correo">Correo electrónico</label>
+        <input
+          v-model="correo"
+          id="correo"
+          type="email"
+          placeholder=" "
+          required
+        />
+      </div>
+      <div class="input-group">
+        <label for="contrasena">Contraseña</label>
+        <input
+          v-model="contrasena"
+          id="contrasena"
+          type="password"
+          placeholder=" "
+          required
+        />
+      </div>
+      <button type="submit">Iniciar sesión</button>
       <p v-if="error" class="error">{{ error }}</p>
     </form>
-    <router-link to="/registro">¿No tienes cuenta? Regístrate</router-link>
+    <router-link to="/registro" class="link-text"
+      >¿No tienes una cuenta? Regístrate</router-link
+    >
   </div>
 </template>
 
@@ -40,8 +71,101 @@ async function handleLogin() {
 </script>
 
 <style scoped>
-.login-container { max-width: 400px; margin: 50px auto; padding: 2rem; border-radius: 8px; background: #fff; box-shadow: 0 2px 8px #0001; }
-input { display: block; width: 100%; margin-bottom: 1rem; padding: 0.5rem; }
-button { width: 100%; padding: 0.7rem; background: #1976d2; color: #fff; border: none; border-radius: 4px; }
-.error { color: red; margin-top: 1rem; }
+/* Estilos generales para ambos formularios */
+.form-container {
+  max-width: 400px;
+  margin: 50px auto;
+  padding: 40px;
+  background-color: #1548ef; /* Fondo azul oscuro */
+  color: #dedbdb;
+  border-radius: 20px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.icon-wrapper {
+  margin-bottom: 20px;
+  width: 100px;
+  height: 100px;
+  background-color: #fff;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 10px;
+}
+
+.user-icon {
+  width: 80px;
+  height: 80px;
+  fill: #2a3a89;
+}
+
+form {
+  width: 100%;
+}
+
+.input-group {
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.input-group label {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 5px;
+}
+
+input {
+  width: 100%;
+  padding: 12px;
+  background-color: #f0f4f7;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  color: #333;
+}
+
+input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px #007bff;
+}
+
+button {
+  width: 100%;
+  padding: 15px;
+  font-size: 18px;
+  font-weight: bold;
+  background-color: #007bff; /* Color azul */
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+button:hover {
+  background-color: #0056b3;
+}
+
+.error {
+  color: #ffcccc;
+  margin-top: 15px;
+  font-weight: bold;
+}
+
+.link-text {
+  color: #fff;
+  margin-top: 20px;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.login-form h2 {
+  display: none; /* Ocultamos el h2 de "Iniciar sesión" ya que no está en la imagen */
+}
 </style>
