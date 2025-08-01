@@ -1,6 +1,5 @@
 // Servicio de autenticación
-const HOST = '3b423adeb4d0.ngrok-free.app';
-const API_BASE_URL = `https://${HOST}/api`;
+import { API_BASE_URL } from "@/config";
 
 export const authUrls = {
     login: `${API_BASE_URL}/Auth/login`,

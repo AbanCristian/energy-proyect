@@ -43,8 +43,8 @@
           <div class="metric-value">{{ currentTelemetry.voltios?.toFixed(2) || '--' }} V</div>
         </div>
         <div class="metric">
-          <div class="metric-label">Corriente (A)</div>
-          <div class="metric-value">{{ currentTelemetry.amperios?.toFixed(2) || '--' }} A</div>
+          <div class="metric-label">Corriente (mA)</div>
+          <div class="metric-value">{{ currentTelemetry.amperios?.toFixed(2) || '--' }} mA</div>
         </div>
         <div class="metric">
           <div class="metric-label">Potencia (W)</div>
@@ -658,8 +658,6 @@ const formatDuration = (milliseconds) => {
   text-align: center;
   padding: 20px;
   border-radius: 8px; /* Un poco menos de borde para los elementos internos */
-  background: #F7F7F7; /* Fondo más claro */
-  border: 1px solid #E0E0E0; /* Borde para el recuadro interno */
   margin-bottom: 10px; /* Espaciado entre los recuadros internos */
 }
 

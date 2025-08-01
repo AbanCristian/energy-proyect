@@ -1,6 +1,4 @@
-const HOST = '3b423adeb4d0.ngrok-free.app';
-const API_BASE_URL = `https://${HOST}/api`;
-const WS_BASE_URL = `wss://${HOST}/ws/web`;
+import { API_BASE_URL, WS_BASE_URL } from "@/config";
 
 // Configuración común para las peticiones
 const commonHeaders = {

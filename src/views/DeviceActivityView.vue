@@ -57,11 +57,11 @@
           </div>
           <div class="metric">
             <div class="metric-label">Corriente</div>
-            <div class="metric-value">{{ telemetryData.amperios?.toFixed(2) || '--' }} A</div>
+            <div class="metric-value">{{ telemetryData.amperios?.toFixed(2) || '--' }} mA</div>
           </div>
           <div class="metric">
             <div class="metric-label">Potencia</div>
-            <div class="metric-value">{{ (telemetryData.vatios / 1000)?.toFixed(2) || '--' }} W</div>
+            <div class="metric-value">{{ (telemetryData.vatios / 1000)?.toFixed(2) || '--' }} mW</div>
           </div>
         </div>
       </div>
