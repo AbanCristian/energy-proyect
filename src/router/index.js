@@ -2,14 +2,17 @@ import { createRouter, createWebHistory } from 'vue-router'
 // import HomeView from '../views/HomeView.vue'
 import DashboardView from '../views/DashboardView.vue';
 import DeviceView from '../views/DeviceView.vue';
+import DeviceActivityView from '@/views/DeviceActivityView.vue';
+
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
-    // {
-    //   path: '/',
-    //   name: 'home',
-    //   component: HomeView,
-    // },
+    {
+      path: '/actividad-dispositivo',
+      name: 'actividad-dispositivo',
+      component: DeviceActivityView,
+      props: true
+    },
     // {
     //   path: '/about',
     //   name: 'about',

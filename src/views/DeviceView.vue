@@ -37,7 +37,11 @@
             <path d="M3 7v13h18V7L12 3z" />
             <path d="M9 22v-4h6v4" />
           </svg>
+          
         </div>
+        <button @click="verActividad(device)" class="actividad-btn">
+            📊 Ver actividad
+        </button>
       </div>
     </div>
   </div>
@@ -46,7 +50,9 @@
 <script setup>
 import { onMounted, ref } from 'vue';
 import { getDevice } from '@/services/deviceService';
+import { useRouter } from 'vue-router';
 
+const router = useRouter();
 const devices = ref([]);
 const isLoading = ref(true);
 onMounted(async () =>{
@@ -61,6 +67,15 @@ onMounted(async () =>{
   }
 });
 
+const verActividad = (device) =>{
+  router.push({
+    name: 'actividad-dispositivo',
+    query: {
+      id: device.dispositivoId
+    }
+  })
+}
+
 </script>
 
 <style scoped>
@@ -70,7 +85,7 @@ onMounted(async () =>{
 
 .device-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(120px, 0.3fr));
   gap: 20px;
 }
 
@@ -109,5 +124,21 @@ onMounted(async () =>{
   padding: 20px 30px;
   border-radius: 10px;
   box-shadow: 0 0 10px rgba(0,0,0,0.3);
+}
+
+.actividad-btn {
+  margin-top: 12px;
+  background-color: #1976d2;
+  color: #fff;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.actividad-btn:hover {
+  background-color: #1565c0;
 }
 </style>
