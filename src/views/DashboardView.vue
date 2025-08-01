@@ -1,5 +1,13 @@
 <template>
   <div class="dashboard-container">
+    <!-- Modal de carga -->
+    <div v-if="isLoading" class="loading-modal">
+      <div class="loading-content">
+        <div class="loading-spinner"></div>
+        <p>{{ loadingMessage }}</p>
+      </div>
+    </div>
+
     <div class="header">
       <h1>Monitor Eléctrico en Tiempo Real</h1>
       <div class="websocket-status">
@@ -116,12 +124,15 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue'
-import { getDevice, connectDeviceHub } from '@/services/external'
+import { getDevice, connectDeviceHub, getCanalEstado, setCanalRele } from '@/services/external'
 import Chart from 'chart.js/auto'
 
 // Estados reactivos
 const chartCanvas = ref(null)
 const mainDevice = ref(null)
+const isLoading = ref(true)
+const loadingMessage = ref('Cargando información del dispositivo...')
+
 const currentTelemetry = ref({
   voltios: 0,
   amperios: 0,
@@ -162,17 +173,34 @@ const activeDevicesCount = computed(() => {
 
 onMounted(async () => {
   try {
+    loadingMessage.value = 'Cargando datos del dispositivo...'
+    
     // Cargar datos iniciales
     await loadInitialData()
     
-    // Inicializar gráfico
-    initializeChart()
+    loadingMessage.value = 'Inicializando gráficos...'
     
-    // Conectar WebSocket (solo datos reales del ESP32)
-    connectToWebSocket()
+    // Inicializar gráfico
+    await initializeChart()
+    
+    loadingMessage.value = 'Conectando WebSocket...'
+    
+    // Conectar WebSocket
+    await connectToWebSocket()
+    
+    loadingMessage.value = 'Sincronizando estados...'
+    
+    // Sincronizar estados entre BD y WebSocket
+    await syncDeviceStates()
     
   } catch (error) {
     console.error('Error al inicializar dashboard:', error)
+    loadingMessage.value = 'Error al cargar el dashboard'
+  } finally {
+    // Ocultar carga después de 2 segundos para mostrar el resultado
+    setTimeout(() => {
+      isLoading.value = false
+    }, 2000)
   }
 })
 
@@ -200,57 +228,89 @@ const loadInitialData = async () => {
 
 // Conectar al WebSocket
 const connectToWebSocket = () => {
+  return new Promise((resolve, reject) => {
+    if (!mainDevice.value?.dispositivoId) {
+      console.log('⚠️ No hay dispositivo para conectar WebSocket')
+      reject(new Error('No hay dispositivo'))
+      return
+    }
+
+    try {
+      const deviceId = mainDevice.value.dispositivoId
+      console.log('🔌 Conectando WebSocket para dispositivo:', deviceId)
+      
+      wsConnection = connectDeviceHub(deviceId, (data) => {
+        console.log('📨 Datos WebSocket recibidos:', data)
+        handleWebSocketMessage(data)
+      })
+
+      wsConnection.onopen = () => {
+        console.log('✅ WebSocket conectado')
+        wsStatus.value = {
+          connected: true,
+          text: 'WebSocket Conectado'
+        }
+        resolve()
+      }
+
+      wsConnection.onerror = (error) => {
+        console.error('❌ Error WebSocket:', error)
+        wsStatus.value = {
+          connected: false,
+          text: 'WebSocket Error'
+        }
+        
+        // Resetear cálculo de consumo cuando hay error
+        lastPowerCalculation.value = null
+        reject(error)
+      }
+
+      wsConnection.onclose = () => {
+        console.log('🔌 WebSocket desconectado')
+        wsStatus.value = {
+          connected: false,
+          text: 'WebSocket Desconectado'
+        }
+        
+        // Resetear cálculo de consumo cuando se desconecta
+        lastPowerCalculation.value = null
+        
+        // Reconectar después de 5 segundos
+        setTimeout(() => {
+          console.log('🔄 Reintentando conexión WebSocket...')
+          connectToWebSocket()
+        }, 5000)
+      }
+    } catch (error) {
+      console.error('❌ Error al conectar WebSocket:', error)
+      reject(error)
+    }
+  })
+}
+
+// Sincronizar estados entre BD y WebSocket
+const syncDeviceStates = async () => {
   if (!mainDevice.value?.dispositivoId) {
-    console.log('⚠️ No hay dispositivo para conectar WebSocket')
+    console.log('⚠️ No hay dispositivo para sincronizar')
     return
   }
 
   try {
-    const deviceId = mainDevice.value.dispositivoId
-    console.log('🔌 Conectando WebSocket para dispositivo:', deviceId)
+    console.log('🔄 Sincronizando estados entre BD y WebSocket...')
     
-    wsConnection = connectDeviceHub(deviceId, (data) => {
-      console.log('📨 Datos WebSocket recibidos:', data)
-      handleWebSocketMessage(data)
-    })
-
-    wsConnection.onopen = () => {
-      console.log('✅ WebSocket conectado')
-      wsStatus.value = {
-        connected: true,
-        text: 'WebSocket Conectado'
-      }
-    }
-
-    wsConnection.onerror = (error) => {
-      console.error('❌ Error WebSocket:', error)
-      wsStatus.value = {
-        connected: false,
-        text: 'WebSocket Error'
-      }
-      
-      // Resetear cálculo de consumo cuando hay error
-      lastPowerCalculation.value = null
-    }
-
-    wsConnection.onclose = () => {
-      console.log('🔌 WebSocket desconectado')
-      wsStatus.value = {
-        connected: false,
-        text: 'WebSocket Desconectado'
-      }
-      
-      // Resetear cálculo de consumo cuando se desconecta
-      lastPowerCalculation.value = null
-      
-      // Reconectar después de 5 segundos
-      setTimeout(() => {
-        console.log('🔄 Reintentando conexión WebSocket...')
-        connectToWebSocket()
-      }, 5000)
-    }
+    // Obtener estado actual de los canales desde la BD
+    const canalResponse = await getCanalEstado(mainDevice.value.dispositivoId)
+    console.log('📊 Estado de canales desde BD:', canalResponse)
+    
+    // Esperar un momento para que el WebSocket se establezca completamente
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    
+    // Aquí se podría implementar lógica adicional para sincronizar
+    // Por ejemplo, si hay discrepancias entre BD y WebSocket
+    
+    console.log('✅ Sincronización completada')
   } catch (error) {
-    console.error('❌ Error al conectar WebSocket:', error)
+    console.error('❌ Error al sincronizar estados:', error)
   }
 }
 
@@ -346,42 +406,49 @@ const calculateConsumption = (data) => {
 }
 
 // Inicializar gráfico
-const initializeChart = () => {
-  if (!chartCanvas.value) return
-  
-  const ctx = chartCanvas.value.getContext('2d')
-  powerChart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: [],
-      datasets: [{
-        label: 'Potencia (W)',
-        data: [],
-        borderColor: '#3498db',
-        backgroundColor: 'rgba(52, 152, 219, 0.1)',
-        tension: 0.1,
-        fill: true
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      scales: {
-        x: {
-          title: { display: true, text: 'Tiempo' }
-        },
-        y: {
-          title: { display: true, text: 'Potencia (W)' },
-          beginAtZero: true
-        }
+const initializeChart = async () => {
+  return new Promise((resolve) => {
+    if (!chartCanvas.value) {
+      setTimeout(() => initializeChart().then(resolve), 100)
+      return
+    }
+    
+    const ctx = chartCanvas.value.getContext('2d')
+    powerChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'Potencia (W)',
+          data: [],
+          borderColor: '#3498db',
+          backgroundColor: 'rgba(52, 152, 219, 0.1)',
+          tension: 0.1,
+          fill: true
+        }]
       },
-      plugins: {
-        legend: {
-          display: true,
-          position: 'top'
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            title: { display: true, text: 'Tiempo' }
+          },
+          y: {
+            title: { display: true, text: 'Potencia (W)' },
+            beginAtZero: true
+          }
+        },
+        plugins: {
+          legend: {
+            display: true,
+            position: 'top'
+          }
         }
       }
-    }
+    })
+    
+    resolve()
   })
 }
 
@@ -480,6 +547,50 @@ const formatDuration = (milliseconds) => {
   font-size: 0.85rem;
   font-weight: 500;
   color: #2c3e50;
+}
+
+/* Loading Modal */
+.loading-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(255, 255, 255, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.loading-content {
+  text-align: center;
+  padding: 40px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 20px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-content p {
+  margin: 0;
+  font-size: 16px;
+  color: #2c3e50;
+  font-weight: 500;
 }
 
 /* Status Section */

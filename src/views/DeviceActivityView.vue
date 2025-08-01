@@ -20,7 +20,8 @@
 
     <div v-if="isLoadingData" class="modal-carga">
       <div class="modal-contenido">
-        <p>Recopilando información...</p>
+        <div class="loading-spinner"></div>
+        <p>{{ loadingDataMessage }}</p>
       </div>
     </div>
 
@@ -60,7 +61,7 @@
           </div>
           <div class="metric">
             <div class="metric-label">Potencia</div>
-            <div class="metric-value">{{ telemetryData.vatios?.toFixed(2) || '--' }} W</div>
+            <div class="metric-value">{{ (telemetryData.vatios / 1000)?.toFixed(2) || '--' }} W</div>
           </div>
         </div>
       </div>
@@ -79,10 +80,16 @@
           <button
             @click="toggleRele(canal.canalId, canal.releActivo, index)"
             :class="['action-button', canal.releActivo ? 'turn-off' : 'turn-on']"
-            :disabled="isLoading"
+            :disabled="isLoading || deviceStatus.status !== 'online' || pendingChanges.has(canal.canalId)"
           >
-            {{ canal.releActivo ? 'Bloquear' : 'Desbloquear' }}
+            <span v-if="pendingChanges.has(canal.canalId)" class="button-spinner"></span>
+            {{ getButtonText(canal.canalId, canal.releActivo) }}
           </button>
+          
+          <!-- Mensaje de estado del dispositivo -->
+          <div v-if="deviceStatus.status !== 'online'" class="device-warning">
+            <small>⚠️ ESP32 desconectado - Botones bloqueados</small>
+          </div>
         </div>
       </div>
     </div>
@@ -90,7 +97,7 @@
 </template>
 
 <script setup>
-import { getOneDeviceData, setCanalRele, connectDeviceHub } from '@/services/external'
+import { getOneDeviceData, setCanalRele, connectDeviceHub, getCanalEstado } from '@/services/external'
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 
@@ -101,6 +108,11 @@ const deviceId = parseInt(route.query.id)
 const isLoading = ref(false)
 const isLoadingData = ref(true)
 const loadingMessage = ref('Bloqueando el puerto...')
+const loadingDataMessage = ref('Cargando información del dispositivo...')
+
+// Control de cambios pendientes
+const pendingChanges = ref(new Set())
+const changeTimeouts = ref(new Map())
 
 const device = ref({
   ubicacion: '',
@@ -112,8 +124,8 @@ const telemetryData = ref(null)
 
 // Estado de conexión del dispositivo
 const deviceStatus = ref({
-  status: 'offline',
-  text: 'Desconectado',
+  status: 'offline', // 'online', 'offline', 'error'
+  text: 'ESP32 Desconectado',
   lastUpdate: null
 })
 
@@ -123,18 +135,31 @@ let wsConnection = null
 onMounted(async () => {
   if (deviceId) {
     try {
+      loadingDataMessage.value = 'Cargando datos del dispositivo...'
+      
       // Cargar datos iniciales del dispositivo
       await loadDeviceData()
       
-      // Conectar WebSocket para datos en tiempo real
-      connectToWebSocket()
+      loadingDataMessage.value = 'Conectando WebSocket...'
       
-      // Activar simulación para pruebas (solo en desarrollo)
-      simulateWebSocketMessages()
+      // Conectar WebSocket para datos en tiempo real
+      await connectToWebSocket()
+      
+      loadingDataMessage.value = 'Sincronizando estados de relés...'
+      
+      // Sincronizar estados entre BD y WebSocket
+      await syncRelayStates()
+      
+      // Activar simulación para pruebas (solo en desarrollo) - DESHABILITADO
+      // simulateWebSocketMessages()
     } catch (e) {
       console.error('Error al cargar datos del dispositivo:', e)
+      loadingDataMessage.value = 'Error al cargar el dispositivo'
     } finally {
-      isLoadingData.value = false
+      // Ocultar carga después de 2 segundos
+      setTimeout(() => {
+        isLoadingData.value = false
+      }, 2000)
     }
   }
 })
@@ -144,6 +169,13 @@ onUnmounted(() => {
   if (wsConnection) {
     wsConnection.close()
   }
+  
+  // Limpiar todos los timeouts pendientes
+  changeTimeouts.value.forEach((timeoutId) => {
+    clearTimeout(timeoutId)
+  })
+  changeTimeouts.value.clear()
+  pendingChanges.value.clear()
 })
 
 // Cargar datos del dispositivo desde la API
@@ -161,57 +193,94 @@ const loadDeviceData = async () => {
 
 // Conectar al WebSocket para recibir datos en tiempo real
 const connectToWebSocket = () => {
-  try {
-    console.log('🔌 Conectando WebSocket para dispositivo:', deviceId)
-    console.log('🔗 URL WebSocket:', `wss://3b423adeb4d0.ngrok-free.app/ws/web?deviceId=${deviceId}`)
-    
-    wsConnection = connectDeviceHub(deviceId, (data) => {
-      console.log('📨 Mensaje WebSocket recibido:', data)
-      handleWebSocketMessage(data)
-    })
+  return new Promise((resolve, reject) => {
+    try {
+      console.log('🔌 Conectando WebSocket para dispositivo:', deviceId)
+      console.log('🔗 URL WebSocket:', `wss://3b423adeb4d0.ngrok-free.app/ws/web?deviceId=${deviceId}`)
+      
+      wsConnection = connectDeviceHub(deviceId, (data) => {
+        console.log('📨 Mensaje WebSocket recibido:', data)
+        handleWebSocketMessage(data)
+      })
 
-    // Manejar eventos de conexión
-    wsConnection.onopen = () => {
-      console.log('✅ WebSocket conectado exitosamente')
-      deviceStatus.value = {
-        status: 'online',
-        text: 'Conectado al WebSocket',
-        lastUpdate: new Date().toISOString()
+      // Manejar eventos de conexión
+      wsConnection.onopen = () => {
+        console.log('✅ WebSocket conectado exitosamente')
+        // NO marcar como online automáticamente, esperar telemetría o confirmación del ESP32
+        console.log('🔌 WebSocket conectado, esperando confirmación del ESP32...')
+        resolve()
       }
-    }
 
-    wsConnection.onerror = (error) => {
-      console.error('❌ Error en WebSocket:', error)
+      wsConnection.onerror = (error) => {
+        console.error('❌ Error en WebSocket:', error)
+        deviceStatus.value = {
+          status: 'error',
+          text: 'ESP32 Error de conexión',
+          lastUpdate: new Date().toISOString()
+        }
+        reject(error)
+      }
+
+      wsConnection.onclose = (event) => {
+        console.log('🔌 WebSocket desconectado. Código:', event.code, 'Razón:', event.reason)
+        deviceStatus.value = {
+          status: 'offline',
+          text: 'ESP32 Desconectado',
+          lastUpdate: new Date().toISOString()
+        }
+        
+        // Intentar reconectar después de 5 segundos
+        setTimeout(() => {
+          if (!wsConnection || wsConnection.readyState === WebSocket.CLOSED) {
+            console.log('🔄 Intentando reconectar WebSocket...')
+            connectToWebSocket()
+          }
+        }, 5000)
+      }
+    } catch (error) {
+      console.error('❌ Error al inicializar WebSocket:', error)
       deviceStatus.value = {
         status: 'error',
-        text: 'Error de conexión WebSocket',
+        text: 'ESP32 Error al conectar',
         lastUpdate: new Date().toISOString()
       }
+      reject(error)
     }
+  })
+}
 
-    wsConnection.onclose = (event) => {
-      console.log('🔌 WebSocket desconectado. Código:', event.code, 'Razón:', event.reason)
-      deviceStatus.value = {
-        status: 'offline',
-        text: 'WebSocket desconectado',
-        lastUpdate: new Date().toISOString()
-      }
+// Sincronizar estados entre BD y WebSocket
+const syncRelayStates = async () => {
+  try {
+    console.log('🔄 Sincronizando estados de relés entre BD y WebSocket...')
+    
+    // Obtener estado actual de los canales desde la BD
+    const canalResponse = await getCanalEstado(deviceId)
+    console.log('📊 Estado de canales desde BD:', canalResponse)
+    
+    if (canalResponse && canalResponse.data && canalResponse.data.canales) {
+      // Comparar y actualizar estados si es necesario
+      const bdCanales = canalResponse.data.canales
       
-      // Intentar reconectar después de 5 segundos
-      setTimeout(() => {
-        if (!wsConnection || wsConnection.readyState === WebSocket.CLOSED) {
-          console.log('🔄 Intentando reconectar WebSocket...')
-          connectToWebSocket()
+      for (let i = 0; i < device.value.canales.length; i++) {
+        const localCanal = device.value.canales[i]
+        const bdCanal = bdCanales.find(c => c.canalId === localCanal.canalId)
+        
+        if (bdCanal && bdCanal.releActivo !== localCanal.releActivo) {
+          console.log(`🔄 Sincronizando canal ${localCanal.canalId}: ${localCanal.releActivo} → ${bdCanal.releActivo}`)
+          
+          // Actualizar el estado local con el de la BD
+          device.value.canales[i].releActivo = bdCanal.releActivo
         }
-      }, 5000)
+      }
     }
+    
+    // Esperar un momento para que el WebSocket se establezca completamente
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    
+    console.log('✅ Sincronización de relés completada')
   } catch (error) {
-    console.error('❌ Error al inicializar WebSocket:', error)
-    deviceStatus.value = {
-      status: 'error',
-      text: 'Error al conectar WebSocket',
-      lastUpdate: new Date().toISOString()
-    }
+    console.error('❌ Error al sincronizar estados de relés:', error)
   }
 }
 
@@ -221,55 +290,91 @@ const handleWebSocketMessage = (data) => {
   
   if (data.type === 'device_status') {
     // Actualizar estado del dispositivo (online/offline)
+    const isOnline = data.status === 'online'
     deviceStatus.value = {
       status: data.status,
-      text: data.status === 'online' ? 'Conectado' : 'Desconectado',
+      text: isOnline ? 'ESP32 Conectado' : 'ESP32 Desconectado',
       lastUpdate: data.timestamp
     }
-    console.log('Estado del dispositivo actualizado:', data.status)
+    console.log('Estado del ESP32 actualizado:', data.status)
   } 
   else if (data.type === 'telemetry') {
     // Actualizar datos de telemetría en tiempo real
     telemetryData.value = {
       voltios: data.voltios,
       amperios: data.amperios,
-      vatios: data.vatios,
+      vatios: data.vatios, // Mantener en mW para el cálculo interno, conversión en template
       timestamp: data.timestamp
     }
     
     // Si recibimos telemetría, el dispositivo está online
     deviceStatus.value = {
       status: 'online',
-      text: 'Conectado',
+      text: 'ESP32 Conectado',
       lastUpdate: data.timestamp
     }
-    console.log('Datos de telemetría actualizados:', data)
+    console.log('ESP32 marcado como online por recepción de telemetría:', data)
   }
   else if (data.canales) {
     // Actualizar estado de los canales/relés en tiempo real desde WebSocket
     console.log('Actualizando estado de canales desde WebSocket:', data.canales)
+    
+    // Actualizar cada canal y confirmar cambios pendientes
+    data.canales.forEach(canalWS => {
+      const canalIndex = device.value.canales.findIndex(c => c.canalId === canalWS.canalId)
+      if (canalIndex !== -1) {
+        const oldState = device.value.canales[canalIndex].releActivo
+        device.value.canales[canalIndex].releActivo = canalWS.releActivo
+        
+        // Confirmar el cambio si estaba pendiente
+        if (pendingChanges.value.has(canalWS.canalId) && oldState !== canalWS.releActivo) {
+          confirmRelayChange(canalWS.canalId, canalWS.releActivo)
+        }
+      }
+    })
+    
     device.value.canales = data.canales
   }
   else if (data.canalId && typeof data.releActivo !== 'undefined') {
     // Actualizar un canal específico desde WebSocket
     const canalIndex = device.value.canales.findIndex(c => c.canalId === data.canalId)
     if (canalIndex !== -1) {
+      const oldState = device.value.canales[canalIndex].releActivo
       device.value.canales[canalIndex].releActivo = data.releActivo
-      console.log(`Canal ${data.canalId} actualizado a ${data.releActivo} desde WebSocket`)
+      console.log(`Canal ${data.canalId} actualizado de ${oldState} a ${data.releActivo} desde WebSocket`)
+      
+      // Confirmar el cambio si estaba pendiente
+      if (pendingChanges.value.has(data.canalId)) {
+        confirmRelayChange(data.canalId, data.releActivo)
+      }
     }
   }
 }
 
 // Cambiar estado del relé (solo API - el WebSocket confirmará el cambio)
 const toggleRele = async (canalId, currentState, index) => {
-  isLoading.value = true
+  // Verificar que el ESP32 esté conectado
+  if (deviceStatus.value.status !== 'online') {
+    alert('⚠️ No se puede cambiar el estado del relé: ESP32 desconectado')
+    return
+  }
+
+  // Verificar que no haya un cambio pendiente para este canal
+  if (pendingChanges.value.has(canalId)) {
+    console.log(`Canal ${canalId} ya tiene un cambio pendiente`)
+    return
+  }
+
   const newState = !currentState
-  loadingMessage.value = newState ? 'Desbloqueando el puerto...' : 'Bloqueando el puerto...'
+  console.log(`Iniciando cambio de relé - Canal: ${canalId}, Estado actual: ${currentState}, Nuevo estado: ${newState}`)
+  
+  // Marcar como cambio pendiente
+  pendingChanges.value.add(canalId)
   
   try {
     console.log('Enviando comando de cambio de relé a la API:', { canalId, releActivo: newState })
     
-    // Solo enviar el comando a la API - NO actualizar el estado local aquí
+    // Enviar el comando a la API
     const response = await setCanalRele({ 
       canalId: canalId, 
       releActivo: newState 
@@ -279,17 +384,55 @@ const toggleRele = async (canalId, currentState, index) => {
     
     if (response.isSuccess === false) {
       console.error('Error al cambiar estado del relé:', response.message)
-      // Mostrar error al usuario si es necesario
+      throw new Error(response.message || 'Error desconocido en la API')
     } else {
       console.log('Comando enviado exitosamente. Esperando confirmación del WebSocket...')
-      // El estado se actualizará cuando llegue la confirmación por WebSocket
+      
+      // Configurar timeout para la confirmación
+      const timeoutId = setTimeout(() => {
+        console.error(`Timeout esperando confirmación para canal ${canalId}`)
+        pendingChanges.value.delete(canalId)
+        changeTimeouts.value.delete(canalId)
+        
+        alert(`⚠️ No se recibió confirmación del cambio para el Canal ${canalId}. Inténtalo de nuevo.`)
+      }, 10000) // 10 segundos de timeout
+      
+      changeTimeouts.value.set(canalId, timeoutId)
     }
   } catch (error) {
     console.error('Error al enviar comando a la API:', error)
-    // En caso de error, mantener el estado original
-  } finally {
-    isLoading.value = false
+    
+    // Limpiar el estado pendiente en caso de error
+    pendingChanges.value.delete(canalId)
+    
+    // Mostrar error al usuario
+    alert(`❌ Error al cambiar el estado del relé: ${error.message}. Inténtalo de nuevo.`)
   }
+}
+
+// Confirmar cambio de estado desde WebSocket
+const confirmRelayChange = (canalId, newState) => {
+  console.log(`Confirmando cambio de relé - Canal: ${canalId}, Nuevo estado: ${newState}`)
+  
+  // Limpiar timeout
+  const timeoutId = changeTimeouts.value.get(canalId)
+  if (timeoutId) {
+    clearTimeout(timeoutId)
+    changeTimeouts.value.delete(canalId)
+  }
+  
+  // Quitar de cambios pendientes
+  pendingChanges.value.delete(canalId)
+  
+  console.log(`✅ Cambio confirmado para Canal ${canalId}`)
+}
+
+// Obtener texto del botón según el estado
+const getButtonText = (canalId, currentState) => {
+  if (pendingChanges.value.has(canalId)) {
+    return currentState ? 'Bloqueando...' : 'Desbloqueando...'
+  }
+  return currentState ? 'Bloquear' : 'Desbloquear'
 }
 
 // Formatear tiempo para mostrar
@@ -528,6 +671,28 @@ const simulateWebSocketMessages = () => {
   cursor: not-allowed;
 }
 
+.button-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top: 2px solid white;
+  animation: spin 1s linear infinite;
+  margin-right: 8px;
+}
+
+.device-warning {
+  margin-top: 8px;
+  padding: 6px 12px;
+  background-color: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 4px;
+  color: #856404;
+  font-size: 12px;
+  text-align: center;
+}
+
 .turn-off {
   background-color: #dc3545;
 }
@@ -570,6 +735,21 @@ const simulateWebSocketMessages = () => {
   margin: 0;
   font-size: 16px;
   color: #495057;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 20px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 /* Responsive design */
